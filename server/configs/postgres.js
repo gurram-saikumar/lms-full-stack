@@ -15,27 +15,43 @@ const sequelize = new Sequelize(
         dialectOptions: {
             ssl: {
                 require: true,
-                rejectUnauthorized: false // You might want to set this to true in production
+                rejectUnauthorized: false
             }
         },
         pool: {
-            max: 5,
+            max: 1, // Reduce max connections for serverless
             min: 0,
             acquire: 30000,
             idle: 10000
+        },
+        retry: {
+            max: 3 // Maximum retry attempts
         }
     }
 );
 
+let isConnected = false;
+
 const connectDB = async () => {
+    if (isConnected) {
+        console.log('Using existing database connection');
+        return;
+    }
+
     try {
         await sequelize.authenticate();
         console.log('Database Connected');
-        // Sync all models
-        await sequelize.sync({ alter: true });
-        console.log('Database Synced');
+        isConnected = true;
+        
+        // Only sync in development
+        if (process.env.NODE_ENV !== 'production') {
+            await sequelize.sync({ alter: true });
+            console.log('Database Synced');
+        }
     } catch (error) {
         console.error('Unable to connect to the database:', error);
+        isConnected = false;
+        throw error;
     }
 };
 

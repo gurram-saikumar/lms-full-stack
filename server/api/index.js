@@ -15,27 +15,38 @@ const app = express();
 app.use(cors());
 app.use(clerkMiddleware());
 
+// Initialize database connection
+let isInitialized = false;
+
+const initializeApp = async () => {
+  if (isInitialized) return;
+  
+  try {
+    await connectDB();
+    await connectCloudinary();
+    console.log('Database and Cloudinary connected successfully');
+    isInitialized = true;
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+    throw error;
+  }
+};
+
 // Routes
-app.get('/', (req, res) => res.send("API Working"));
+app.get('/', async (req, res) => {
+  try {
+    await initializeApp();
+    res.send("API Working");
+  } catch (error) {
+    res.status(500).send("Failed to initialize application");
+  }
+});
+
 app.post('/clerk', express.json(), clerkWebhooks);
 app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks);
 app.use('/api/educator', express.json(), educatorRouter);
 app.use('/api/course', express.json(), courseRouter);
 app.use('/api/user', express.json(), userRouter);
-
-// Initialize database connection
-const initializeApp = async () => {
-  try {
-    await connectDB();
-    await connectCloudinary();
-    console.log('Database and Cloudinary connected successfully');
-  } catch (error) {
-    console.error('Failed to initialize app:', error);
-  }
-};
-
-// Initialize the app
-initializeApp();
 
 // Export the Express API
 export default app; 
